@@ -36,9 +36,9 @@ The results display a list of people’s FirstName, MiddleName, and LastName of 
 	so that I get back better results? You can either explain what you would do
 	or show a revised query. */ 
 
-SELECT	FirstName + ' ' + MiddleName + ' ' + LastName As "Vendor Contact"
-FROM	Person.Person 
-WHERE	PersonType = 'VC' AND MiddleName IS NOT NULL
+SELECT FirstName + ' ' + MiddleName + ' ' + LastName As "Vendor Contact"
+FROM Person.Person 
+WHERE PersonType = 'VC' AND MiddleName IS NOT NULL
 ORDER BY LastName, FirstName;
 
 
@@ -153,3 +153,107 @@ SELECT AnimalName
 FROM Animal 
 WHERE FatherAnimalID IN 
 	(SELECT AnimalID FROM Animal WHERE AnimalName = ‘bob’);
+
+--MORE QUERIES
+
+/* 1. Show the SELECT statement that answers this request:
+      For every mother animal, list the mother's name and the number of kids she has. */
+
+USE GI_Animal;
+
+SELECT parent.AnimalName as Mother, 
+COUNT(*) as NumberOfKids –-count any column ok for grading purposes
+FROM Animal AS parent INNER JOIN Animal AS child 
+	ON parent.AnimalID = child.MotherAnimalID
+GROUP BY parent.AnimalName;
+
+/* 2. Consider the following query: */
+
+USE AdventureWorks2012;
+
+SELECT Person.Person.FirstName + ' ' + Person.Person.LastName AS "Employee",
+	HumanResources.Employee.JobTitle,
+	YEAR(GETDATE())-YEAR(HireDate) AS "Years with Company"
+FROM Person.Person INNER JOIN HumanResources.Employee 
+	ON Person.Person.BusinessEntityID = HumanResources.Employee.BusinessEntityID
+WHERE CurrentFlag = 1 AND SalariedFlag = 0
+ORDER BY "Years with Company" DESC;
+
+/* a. How many columns does the query return? 3 (two derived columns + job title)
+
+   b. Why is there no GROUP BY clause, considering that there is a function in the SELECT clause? 
+   	  Because the YEAR & GETDATE functions are scalar, not aggregate, so no GROUP BY is needed. We are returning detail rows, not aggregated data.
+
+   c. Will the query result include any people who are not employees? How do you know? 
+      No, because there is an INNER join of person & employee, i.e., only people who are employees are returned from the join (and then the employees are further narrowed down in the WHERE clause)
+
+   d. Will the query result include all employees? Why or why not? 
+      The WHERE clause will keep only those employees who are current and not salaried.
+
+   e. Why is it ok to use the alias "Years with Company" in the ORDER BY clause? 
+      Because the ORDER BY clause is processed after the SELECT clause (where the alias is defined)
+
+   f. Show how you would change the query if we only wanted to see current salaried employees 
+who have been with the company less than 15 years. */ 
+
+SELECT Person.Person.FirstName + ' ' + Person.Person.LastName AS "Employee",
+	HumanResources.Employee.JobTitle,
+	YEAR(GETDATE())-YEAR(HireDate) AS "Years with Company"
+FROM Person.Person INNER JOIN HumanResources.Employee 
+	ON Person.Person.BusinessEntityID = HumanResources.Employee.BusinessEntityID
+WHERE CurrentFlag = 1 AND SalariedFlag = 1 AND YEAR(GETDATE())-YEAR(HireDate) < 15
+ORDER BY "Years with Company" DESC;
+
+/* 3. Show the SELECT statement for this request:
+      What is the total sick leave across all current employees? */
+
+SELECT SUM(SickLeaveHours) AS "Total Sick Leave Hours"
+FROM HumanResources.Employee
+WHERE CurrentFlag = 1;
+
+/* 4. Show the SELECT statement for this request:
+      Which employees have sick leave hours above the average sick leave for all employees?
+      Show their national ID numbers, job titles, and sick leave hours. Only current 
+      employees should be included in the query. (Hint: Use a subquery to return the
+average sick leave hours for all employees, similar to the last subquery example from 
+      the in-class exercises from 4/12, posted on Canvas under Week 12.)*/
+
+SELECT NationalIDNumber, JobTitle, SickLeaveHours
+FROM HumanResources.Employee
+WHERE CurrentFlag = 1 AND SickLeaveHours >  (SELECT AVG(SickLeaveHours) FROM HumanResources.Employee WHERE CurrentFlag = 1);
+
+/* 5. How would you change the previous query if you want the result to
+      show employee names too?*/
+
+SELECT Person.Person.FirstName + ' ' + Person.Person.LastName AS "Employee",
+		NationalIDNumber, JobTitle, SickLeaveHours
+FROM HumanResources.Employee INNER JOIN Person.Person 
+		ON Person.Person.BusinessEntityID = HumanResources.Employee.BusinessEntityID
+WHERE CurrentFlag = 1 AND
+		SickLeaveHours > (SELECT AVG(SickLeaveHours) 
+FROM HumanResources.Employee WHERE CurrentFlag = 1);
+
+/* 6. Show the SELECT statement for this request:
+      What are the total sick leave hours, by job title? Only current employees should
+      be included in the total sick leave calculation.*/
+
+SELECT JobTitle, SUM(SickLeaveHours) AS "Total Sick Leave Hours"
+FROM HumanResources.Employee
+WHERE CurrentFlag = 1 
+GROUP BY JobTitle;
+
+/* 7. Show the SELECT statement for this request:
+	  Show the names of sales territories that have no salespeople, 
+	  if there are any. (Hint: There should be one.) */
+
+SELECT Name 
+FROM Sales.SalesTerritory
+WHERE TerritoryID NOT IN (SELECT DISTINCT TerritoryID FROM Sales.Salesperson WHERE TerritoryID IS NOT NULL)
+--or
+
+SELECT Sales.SalesTerritory.Name
+FROM Sales.SalesTerritory LEFT OUTER JOIN Sales.Salesperson
+	 ON Sales.SalesTerritory.TerritoryID = sales.SalesPerson.TerritoryID
+WHERE sales.SalesPerson.BusinessEntityID IS NULL;
+
+
